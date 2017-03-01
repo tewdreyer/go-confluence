@@ -1,9 +1,14 @@
 package confluence
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -39,6 +44,7 @@ type Content struct {
 	Space       Space      `json:"space,omitempty"`
 	LabelPrefix string     `json:"prefix,omitempty"`
 	LabelName   string     `json:"name,omitempty"`
+	Attachments []string
 }
 
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
@@ -148,6 +154,52 @@ func (w *Wiki) AddLabel(content *Content) (*Content, error) {
 	contentEndPoint, err := w.contentEndpoint(content.Id + "/label")
 	req, err := http.NewRequest("POST", contentEndPoint.String(), strings.NewReader(string(jsonbody)))
 	req.Header.Add("Content-Type", "application/json")
+
+	res, err := w.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var newContent Content
+	err = json.Unmarshal(res, &newContent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newContent, nil
+}
+
+func (w *Wiki) AddAttachments(content *Content) (*Content, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for _, file := range content.Attachments {
+		f, err := os.Open(file)
+		if err != nil {
+			continue
+		}
+		defer f.Close()
+
+		part, err := writer.CreateFormFile("file", filepath.Base(file))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = io.Copy(part, f)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err := writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	contentEndPoint, err := w.contentEndpoint(content.Id + "/child/attachment")
+	req, err := http.NewRequest("POST", contentEndPoint.String(), body)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.Header.Add("X-Atlassian-Token", "no-check")
 
 	res, err := w.sendRequest(req)
 	if err != nil {
