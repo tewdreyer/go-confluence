@@ -8,19 +8,19 @@ import (
 )
 
 type Content struct {
-	Id     string `json:"id"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Title  string `json:"title"`
+	Id     string `json:"id,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Status string `json:"status,omitempty"`
+	Title  string `json:"title,omitempty"`
 	Body   struct {
 		Storage struct {
-			Value          string `json:"value"`
-			Representation string `json:"representation"`
-		} `json:"storage"`
-	} `json:"body"`
+			Value          string `json:"value,omitempty"`
+			Representation string `json:"representation,omitempty"`
+		} `json:"storage,omitempty"`
+	} `json:"body,omitempty"`
 	Version struct {
-		Number int `json:"number"`
-	} `json:"version"`
+		Number int `json:"number,omitempty"`
+	} `json:"version,omitempty"`
 }
 
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
