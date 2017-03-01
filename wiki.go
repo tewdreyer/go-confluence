@@ -18,7 +18,7 @@ func NewWiki(location string, authMethod AuthMethod) (*Wiki, error) {
 	if err != nil {
 		return nil, err
 	}
-	u.Path = "/wiki/rest/api"
+	u.Path = "/rest/api"
 
 	wiki := new(Wiki)
 	wiki.endPoint = u
