@@ -7,20 +7,36 @@ import (
 	"strings"
 )
 
+type Storage struct {
+	Value          string `json:"value"`
+	Representation string `json:"representation"`
+}
+
+type Body struct {
+	Storage Storage `json:"storage"`
+}
+
+type Version struct {
+	Number int `json:"number"`
+}
+
+type Ancestor struct {
+	Id string `json:"id,omitempty"`
+}
+
+type Space struct {
+	Key string `json:"key,omitempty"`
+}
+
 type Content struct {
-	Id     string `json:"id,omitempty"`
-	Type   string `json:"type,omitempty"`
-	Status string `json:"status,omitempty"`
-	Title  string `json:"title,omitempty"`
-	Body   struct {
-		Storage struct {
-			Value          string `json:"value,omitempty"`
-			Representation string `json:"representation,omitempty"`
-		} `json:"storage,omitempty"`
-	} `json:"body,omitempty"`
-	Version struct {
-		Number int `json:"number,omitempty"`
-	} `json:"version,omitempty"`
+	Id          string     `json:"id,omitempty"`
+	Type        string     `json:"type,omitempty"`
+	Status      string     `json:"status,omitempty"`
+	Title       string     `json:"title,omitempty"`
+	Body        Body       `json:"body,omitempty"`
+	Version     Version    `json:"version,omitempty"`
+	Ancestors   []Ancestor `json:"ancestors,omitempty"`
+	Space       Space      `json:"space,omitempty"`
 }
 
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
@@ -81,6 +97,30 @@ func (w *Wiki) UpdateContent(content *Content) (*Content, error) {
 
 	contentEndPoint, err := w.contentEndpoint(content.Id)
 	req, err := http.NewRequest("PUT", contentEndPoint.String(), strings.NewReader(string(jsonbody)))
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := w.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var newContent Content
+	err = json.Unmarshal(res, &newContent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newContent, nil
+}
+
+func (w *Wiki) CreateContent(content *Content) (*Content, error) {
+	jsonbody, err := json.Marshal(content)
+	if err != nil {
+		return nil, err
+	}
+
+	contentEndPoint, err := w.contentEndpoint("")
+	req, err := http.NewRequest("POST", contentEndPoint.String(), strings.NewReader(string(jsonbody)))
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := w.sendRequest(req)
