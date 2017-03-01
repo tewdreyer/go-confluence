@@ -37,6 +37,8 @@ type Content struct {
 	Version     Version    `json:"version,omitempty"`
 	Ancestors   []Ancestor `json:"ancestors,omitempty"`
 	Space       Space      `json:"space,omitempty"`
+	LabelPrefix string     `json:"prefix,omitempty"`
+	LabelName   string     `json:"name,omitempty"`
 }
 
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
@@ -120,6 +122,30 @@ func (w *Wiki) CreateContent(content *Content) (*Content, error) {
 	}
 
 	contentEndPoint, err := w.contentEndpoint("")
+	req, err := http.NewRequest("POST", contentEndPoint.String(), strings.NewReader(string(jsonbody)))
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := w.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var newContent Content
+	err = json.Unmarshal(res, &newContent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newContent, nil
+}
+
+func (w *Wiki) AddLabel(content *Content) (*Content, error) {
+	jsonbody, err := json.Marshal(content)
+	if err != nil {
+		return nil, err
+	}
+
+	contentEndPoint, err := w.contentEndpoint(content.Id + "/label")
 	req, err := http.NewRequest("POST", contentEndPoint.String(), strings.NewReader(string(jsonbody)))
 	req.Header.Add("Content-Type", "application/json")
 
