@@ -47,6 +47,13 @@ type Content struct {
 	Attachments []string
 }
 
+type Result struct {
+	Pages []Content `json:"results,omitempty"`
+	Start int       `json:"start,omitempty"`
+	Limit int       `json:"limt,omitempty"`
+	Size  int       `json:"size,omitempty"`
+}
+
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
 	return url.ParseRequestURI(w.endPoint.String() + "/content/" + contentID)
 }
@@ -95,6 +102,34 @@ func (w *Wiki) GetContent(contentID string, expand []string) (*Content, error) {
 	}
 
 	return &content, nil
+}
+
+func (w *Wiki) GetChildPages(contentID string, expand []string) (*[]Content, error) {
+	contentEndPoint, err := w.contentEndpoint(contentID + "/child/page")
+	if err != nil {
+		return nil, err
+	}
+	data := url.Values{}
+	data.Set("expand", strings.Join(expand, ","))
+	contentEndPoint.RawQuery = data.Encode()
+
+	req, err := http.NewRequest("GET", contentEndPoint.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := w.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Result
+	err = json.Unmarshal(res, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.Pages, nil
 }
 
 func (w *Wiki) UpdateContent(content *Content) (*Content, error) {
