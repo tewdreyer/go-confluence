@@ -1,6 +1,7 @@
 package confluence
 
 import (
+	"strconv"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -47,11 +48,28 @@ type Content struct {
 	Attachments []string
 }
 
-type Result struct {
+type PageResult struct {
 	Pages []Content `json:"results,omitempty"`
 	Start int       `json:"start,omitempty"`
 	Limit int       `json:"limt,omitempty"`
 	Size  int       `json:"size,omitempty"`
+}
+
+type Label struct {
+	Name string `json:"name,omitempty"`
+}
+
+type LabelResult struct {
+	Labels []Label `json:"results,omitempty"`
+	Start int       `json:"start,omitempty"`
+	Limit int       `json:"limt,omitempty"`
+	Size  int       `json:"size,omitempty"`
+}
+
+type PageRequest struct {
+	Page *Content
+	Start int
+	Limit int
 }
 
 func (w *Wiki) contentEndpoint(contentID string) (*url.URL, error) {
@@ -104,13 +122,15 @@ func (w *Wiki) GetContent(contentID string, expand []string) (*Content, error) {
 	return &content, nil
 }
 
-func (w *Wiki) GetChildPages(contentID string, expand []string) (*[]Content, error) {
-	contentEndPoint, err := w.contentEndpoint(contentID + "/child/page")
+func (w *Wiki) GetChildPages(request PageRequest, expand []string) (*[]Content, error) {
+	contentEndPoint, err := w.contentEndpoint(request.Page.Id + "/child/page")
 	if err != nil {
 		return nil, err
 	}
 	data := url.Values{}
 	data.Set("expand", strings.Join(expand, ","))
+	data.Set("start", strconv.Itoa(request.Start))
+	data.Set("limit", strconv.Itoa(request.Limit))
 	contentEndPoint.RawQuery = data.Encode()
 
 	req, err := http.NewRequest("GET", contentEndPoint.String(), nil)
@@ -123,13 +143,27 @@ func (w *Wiki) GetChildPages(contentID string, expand []string) (*[]Content, err
 		return nil, err
 	}
 
-	var result Result
+	var pages []Content
+
+	var result PageResult
 	err = json.Unmarshal(res, &result)
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.Pages, nil
+	pages = append(pages, result.Pages...)
+
+	if result.Size > 0 && result.Size == request.Limit {
+		r := PageRequest{Page: request.Page, Start: request.Start + result.Size, Limit: request.Limit}
+		addPages, err := w.GetChildPages(r, expand)
+		if err != nil {
+			return nil, err
+		}
+
+		pages = append(pages, *addPages...)
+	}
+
+	return &pages, nil
 }
 
 func (w *Wiki) UpdateContent(content *Content) (*Content, error) {
@@ -248,4 +282,48 @@ func (w *Wiki) AddAttachments(content *Content) (*Content, error) {
 	}
 
 	return &newContent, nil
+}
+
+func (w *Wiki) GetLabel(request PageRequest, expand []string) (*[]Label, error) {
+	contentEndPoint, err := w.contentEndpoint(request.Page.Id + "/label")
+	if err != nil {
+		return nil, err
+	}
+	data := url.Values{}
+	data.Set("expand", strings.Join(expand, ","))
+	data.Set("start", strconv.Itoa(request.Start))
+	data.Set("limit", strconv.Itoa(request.Limit))
+	contentEndPoint.RawQuery = data.Encode()
+
+	req, err := http.NewRequest("GET", contentEndPoint.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := w.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var labels []Label
+
+	var result LabelResult
+	err = json.Unmarshal(res, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	labels = append(labels, result.Labels...)
+
+	if result.Size > 0 && result.Size == request.Limit {
+		r := PageRequest{Page: request.Page, Start: request.Start + result.Size, Limit: request.Limit}
+		addLabels, err := w.GetLabel(r, expand)
+		if err != nil {
+			return nil, err
+		}
+
+		labels = append(labels, *addLabels...)
+	}
+
+	return &labels, nil
 }
